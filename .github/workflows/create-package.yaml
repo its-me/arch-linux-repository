@@ -28,6 +28,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          repository: aur@aur.archlinux.org/ttf-google-fonts-git.git
 
       - run: |
           pwd
