@@ -26,10 +26,15 @@ jobs:
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           chown -R builder:builder .
 
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          repository: aur@aur.archlinux.org/ttf-google-fonts-git.git
+      - name: Clone AUR package
+        run: |
+          su builder -c "git clone ssh://aur@aur.archlinux.org/ttf-google-fonts-git.git"
+
+
+#      - name: Checkout repository
+#        uses: actions/checkout@v6
+#        with:
+#          repository: aur@aur.archlinux.org/ttf-google-fonts-git.git
 
       - run: |
           pwd
