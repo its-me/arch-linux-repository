@@ -28,7 +28,7 @@ jobs:
 
       - name: Clone AUR package
         run: |
-          su builder -c "git clone ssh://aur@aur.archlinux.org/ttf-google-fonts-git.git"
+          su builder -c "git clone https://aur.archlinux.org/ttf-google-fonts-git.git"
 
 
 #      - name: Checkout repository
