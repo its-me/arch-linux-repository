@@ -30,13 +30,9 @@ jobs:
           REPO="google/fonts"
           BRANCH="main"
           
-          # Get short hash using gh CLI
-          SHORT_HASH=$(gh api "repos/$REPO/commits/$BRANCH" --jq '.sha[0:9]')
+          FONTS_HASH=$(gh api "repos/$REPO/commits/$BRANCH" --jq '.sha[0:9]')
           
-          echo "FONTS_HASH=$SHORT_HASH" >> $GITHUB_OUTPUT
-
-          echo FONTS_HASH: $FONTS_HASH
-          echo SHORT_HASH: $SHORT_HASH
+          echo "FONTS_HASH=$FONTS_HASH" >> $GITHUB_OUTPUT
 
       - name: Create build user
         run: |
