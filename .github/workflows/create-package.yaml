@@ -41,7 +41,7 @@ jobs:
           echo FONTS_HASH: $FONTS_HASH
           echo RELEASE_HASH: $RELEASE_HASH
 
-          if [ "$FONTS_HASH" == "RELEASE_HASH" ]; then
+          if [ "$FONTS_HASH" == "$RELEASE_HASH" ]; then
             echo "should_continue=false" >> $GITHUB_OUTPUT
           else
             echo "should_continue=true" >> $GITHUB_OUTPUT
