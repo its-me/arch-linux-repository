@@ -70,8 +70,11 @@ jobs:
 
       - name: Extract version from package
         run: |
-          CURRENT_VERSION=$(pacman -Qip *.pkg.tar.zst | grep "^Version" | awk '{print $3}' | cut -d':' -f2 | cut -d'-' -f1)
+          PACKAGE_VERSION=$(pacman -Qip *.pkg.tar.zst | grep "^Version" | awk '{print $3}')
+          CURRENT_VERSION=$(echo $PACKAGE_VERSION | cut -d':' -f2 | cut -d'-' -f1)
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
           echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+          echo "Package version: $PACKAGE_VERSION"
           echo "Current version: $CURRENT_VERSION"
 
       - name: Create apk release
@@ -79,4 +82,4 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo CURRENT_VERSION: $CURRENT_VERSION
-          gh release create $CURRENT_VERSION *.pkg.tar.zst --repo ${{ github.repository }}
+          gh release create $CURRENT_VERSION *.pkg.tar.zst --repo ${{ github.repository }} --notes "Version: PACKAGE_VERSION"
