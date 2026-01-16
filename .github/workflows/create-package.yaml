@@ -35,8 +35,8 @@ jobs:
           
           echo "FONTS_HASH=$SHORT_HASH" >> $GITHUB_OUTPUT
 
-          echo $FONTS_HASH
-          echo $SHORT_HASH
+          echo FONTS_HASH: $FONTS_HASH
+          echo SHORT_HASH: $SHORT_HASH
 
       - name: Create build user
         run: |
