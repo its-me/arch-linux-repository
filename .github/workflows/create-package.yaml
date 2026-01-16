@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git sudo fontconfig github-cli tree
+          pacman -S --noconfirm base-devel git sudo fontconfig github-cli
 
       - name: Create build user
         run: |
@@ -41,7 +41,4 @@ jobs:
       - name: Create apk release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          pwd
-          tree
-          gh release create package-version *.pkg.tar.zst
+        run: gh release create package-version *.pkg.tar.zst --repo ${{ github.repository }}
