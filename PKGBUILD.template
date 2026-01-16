@@ -1,0 +1,12 @@
+# Maintainer: Sergey Kanafyev <sergeykanafyev@gmail.com>
+
+pkgname=ttf-google-fonts-git-daily
+pkgver=r12060.fc87bc9c8
+pkgrel=1
+pkgdesc="TrueType fonts from the Google Fonts project (daily builds of the git version)"
+arch=('any')
+url="https://github.com/its-me/arch-linux-package"
+license=('GPL2')
+source=("$url/releases/download/$pkgver/ttf-google-fonts-git-1.$pkgver-1-any.pkg.tar.zst")
+sha256sums=('e94d79e189602694bedfbafb553ce3c6c976426e16f76d93bf7e226dc2876eb6')
+
