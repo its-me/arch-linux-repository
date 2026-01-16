@@ -35,11 +35,13 @@ jobs:
         run: su - builder -c "git clone https://aur.archlinux.org/ttf-google-fonts-git.git"
 
       - name: Build package
+        env:
+          PACKAGER: ${{ github.actor }} <${{ github.event.pusher.email }}>
+          #COMPRESSZST: '(zstd -c -T0 --ultra -20 -)'
         run: su - builder -c "cd ttf-google-fonts-git && makepkg --nodeps --noconfirm"
 
       - name: Copy package to workspace
-        run: |
-          cp /home/builder/ttf-google-fonts-git/*.pkg.tar.zst .
+        run: cp --verbose /home/builder/ttf-google-fonts-git/*.pkg.tar.zst .
 
       - name: Create apk release
         env:
