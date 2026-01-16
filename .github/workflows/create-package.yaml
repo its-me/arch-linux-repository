@@ -1,9 +1,9 @@
 name: Build Arch Package
 
 on:
-  # push:
-  #   branches:
-  #     - main
+  push:
+    branches:
+      - main
   schedule:
     - cron: '0 2 * * *'
   workflow_dispatch:
