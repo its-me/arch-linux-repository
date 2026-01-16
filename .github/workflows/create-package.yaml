@@ -33,7 +33,7 @@ jobs:
           
           FONTS_HASH=$(gh api "repos/$REPO/commits/$BRANCH" --jq '.sha[0:9]')
           
-          RELEASE_HASH=$(gh release view --json tagName --jq '.tagName' | cut -d'.' -f2)
+          RELEASE_HASH=$(gh release view --json tagName --jq '.tagName' --repo ${{ github.repository }} | cut -d'.' -f2)
          
           echo "FONTS_HASH=$FONTS_HASH" >> $GITHUB_OUTPUT
           echo "RELEASE_HASH=$RELEASE_HASH" >> $GITHUB_OUTPUT
