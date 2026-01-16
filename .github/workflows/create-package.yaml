@@ -1,12 +1,12 @@
 name: Build Arch Package
 
 on:
-  push:
-    branches:
-      - main
-#  schedule:
-#    - cron: '0 2 * * *'
-#  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -63,7 +63,7 @@ jobs:
       - name: Build package
         env:
           PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email }}>
-          #COMPRESSZST: '(zstd -c -T0 --ultra -20 -)'
+          COMPRESSZST: '(zstd -c -T0 --ultra -20 -)'
         run: su - builder -c "cd ttf-google-fonts-git && makepkg --nodeps --noconfirm"
 
       - name: Copy package to workspace
