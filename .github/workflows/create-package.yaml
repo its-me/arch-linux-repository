@@ -23,7 +23,8 @@ jobs:
           pacman -Syu --noconfirm
           pacman -S --noconfirm base-devel git sudo fontconfig github-cli
 
-      - name: Get upstream commit hash
+      - name: Get latest commit hash from fonts repository
+        id: compare
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -32,9 +33,22 @@ jobs:
           
           FONTS_HASH=$(gh api "repos/$REPO/commits/$BRANCH" --jq '.sha[0:9]')
           
+          RELEASE_HASH=$(gh release view --json tagName --jq '.tagName' | cut -d'.' -f2)
+         
           echo "FONTS_HASH=$FONTS_HASH" >> $GITHUB_OUTPUT
+          echo "RELEASE_HASH=$RELEASE_HASH" >> $GITHUB_OUTPUT
+
+          echo FONTS_HASH: $FONTS_HASH
+          echo RELEASE_HASH: $RELEASE_HASH
+
+          if [ "$FONTS_HASH" == "RELEASE_HASH" ]; then
+            echo "should_continue=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_continue=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create build user
+        if: steps.compare.outputs.should_continue == 'true'
         run: |
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -54,7 +68,15 @@ jobs:
       - name: Copy package to workspace
         run: cp --verbose /home/builder/ttf-google-fonts-git/*.pkg.tar.zst .
 
-      - name: Create apk release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create $FONTS_HASH *.pkg.tar.zst --repo ${{ github.repository }}
+      # - name: Extract version from package
+      #   run: |
+      #     CURRENT_VERSION=$(pacman -Qip *.pkg.tar.zst | grep "^Version" | awk '{print $3}' | cut -d':' -f2 | cut -d'-' -f1)
+      #     echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+      #     echo "Current version: $CURRENT_VERSION"
+
+      # - name: Create apk release
+      #   env:
+      #     GITHUB_TOKEN: ${{ github.token }}
+      #   run: |
+      #     echo CURRENT_VERSION: $CURRENT_VERSION
+      #     gh release create $CURRENT_VERSION *.pkg.tar.zst --repo ${{ github.repository }}
