@@ -29,12 +29,14 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Clone AUR package
-        run: |
-          su - builder -c "git clone https://aur.archlinux.org/ttf-google-fonts-git.git"
+        run: su - builder -c "git clone https://aur.archlinux.org/ttf-google-fonts-git.git"
 
       - name: Build package
+        run: su - builder -c "cd ttf-google-fonts-git && makepkg --nodeps --noconfirm"
+
+      - name: Copy package to workspace
         run: |
-          su - builder -c "cd ttf-google-fonts-git && makepkg --nodeps --noconfirm"
+          cp /home/builder/ttf-google-fonts-git/*.pkg.tar.zst .
 
       - name: Create apk release
         env:
@@ -42,11 +44,4 @@ jobs:
         run: |
           pwd
           tree
-          gh release create package-version ttf-google-fonts-git/*.pkg.tar.zst
-
-#
-#      - name: Upload package
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: arch-package
-#          path: '*.pkg.tar.zst'
+          gh release create package-version *.pkg.tar.zst
