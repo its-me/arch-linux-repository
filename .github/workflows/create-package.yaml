@@ -32,17 +32,14 @@ jobs:
         run: |
           su - builder -c "git clone https://aur.archlinux.org/ttf-google-fonts-git.git"
 
-      - run: |
-          pwd
-          ls -la
-
       - name: Build package
         run: |
           su - builder -c "cd ttf-google-fonts-git && makepkg --nodeps --noconfirm"
 
-      - run: |
-          pwd
-          ls -la
+      - name: Create apk release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create package-version ./ttf-google-fonts-git/*.pkg.tar.zst
 
 #
 #      - name: Upload package
