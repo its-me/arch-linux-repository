@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git sudo fontconfig github-cli
+          pacman -S --noconfirm github-cli
 
       - name: Get latest commit hash from fonts repository
         id: compare
@@ -42,13 +42,14 @@ jobs:
           echo RELEASE_HASH: $RELEASE_HASH
 
           if [ "$FONTS_HASH" == "$RELEASE_HASH" ]; then
-            echo "should_continue=false" >> $GITHUB_OUTPUT
-          else
-            echo "should_continue=true" >> $GITHUB_OUTPUT
+            echo "Hashes are equal. No new changes. Stopping workflow."
+            exit 1
           fi
 
+      - name: Install required packages
+        run: pacman -S --noconfirm base-devel git sudo fontconfig
+
       - name: Create build user
-        if: steps.compare.outputs.should_continue == 'true'
         run: |
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
