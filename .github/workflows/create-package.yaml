@@ -68,15 +68,15 @@ jobs:
       - name: Copy package to workspace
         run: cp --verbose /home/builder/ttf-google-fonts-git/*.pkg.tar.zst .
 
-      # - name: Extract version from package
-      #   run: |
-      #     CURRENT_VERSION=$(pacman -Qip *.pkg.tar.zst | grep "^Version" | awk '{print $3}' | cut -d':' -f2 | cut -d'-' -f1)
-      #     echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
-      #     echo "Current version: $CURRENT_VERSION"
+      - name: Extract version from package
+        run: |
+          CURRENT_VERSION=$(pacman -Qip *.pkg.tar.zst | grep "^Version" | awk '{print $3}' | cut -d':' -f2 | cut -d'-' -f1)
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+          echo "Current version: $CURRENT_VERSION"
 
-      # - name: Create apk release
-      #   env:
-      #     GITHUB_TOKEN: ${{ github.token }}
-      #   run: |
-      #     echo CURRENT_VERSION: $CURRENT_VERSION
-      #     gh release create $CURRENT_VERSION *.pkg.tar.zst --repo ${{ github.repository }}
+      - name: Create apk release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          echo CURRENT_VERSION: $CURRENT_VERSION
+          gh release create $CURRENT_VERSION *.pkg.tar.zst --repo ${{ github.repository }}
