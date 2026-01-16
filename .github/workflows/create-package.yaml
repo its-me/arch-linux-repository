@@ -33,7 +33,10 @@ jobs:
           # Get short hash using gh CLI
           SHORT_HASH=$(gh api "repos/$REPO/commits/$BRANCH" --jq '.sha[0:9]')
           
-          echo "fonts_hash=$SHORT_HASH" >> $GITHUB_OUTPUT
+          echo "FONTS_HASH=$SHORT_HASH" >> $GITHUB_OUTPUT
+
+          echo $FONTS_HASH
+          echo $SHORT_HASH
 
       - name: Create build user
         run: |
@@ -58,4 +61,4 @@ jobs:
       - name: Create apk release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create $fonts_hash *.pkg.tar.zst --repo ${{ github.repository }}
+        run: gh release create $FONTS_HASH *.pkg.tar.zst --repo ${{ github.repository }}
