@@ -23,6 +23,18 @@ jobs:
           pacman -Syu --noconfirm
           pacman -S --noconfirm base-devel git sudo fontconfig github-cli
 
+      - name: Get upstream commit hash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REPO="google/fonts"
+          BRANCH="main"
+          
+          # Get short hash using gh CLI
+          SHORT_HASH=$(gh api "repos/$REPO/commits/$BRANCH" --jq '.sha[0:9]')
+          
+          echo "fonts_hash=$SHORT_HASH" >> $GITHUB_OUTPUT
+
       - name: Create build user
         run: |
           useradd -m builder
@@ -36,7 +48,7 @@ jobs:
 
       - name: Build package
         env:
-          PACKAGER: ${{ github.actor }} <${{ github.event.pusher.email }}>
+          PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email }}>
           #COMPRESSZST: '(zstd -c -T0 --ultra -20 -)'
         run: su - builder -c "cd ttf-google-fonts-git && makepkg --nodeps --noconfirm"
 
@@ -46,4 +58,4 @@ jobs:
       - name: Create apk release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create package-version *.pkg.tar.zst --repo ${{ github.repository }}
+        run: gh release create $fonts_hash *.pkg.tar.zst --repo ${{ github.repository }}
