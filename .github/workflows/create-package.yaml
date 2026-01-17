@@ -83,4 +83,4 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo CURRENT_VERSION: $CURRENT_VERSION
-          gh release create $CURRENT_VERSION *.pkg.tar.zst --repo ${{ github.repository }} --notes "Version: PACKAGE_VERSION"
+          gh release create $CURRENT_VERSION *.pkg.tar.zst --repo ${{ github.repository }} --notes "Version: $PACKAGE_VERSION"
