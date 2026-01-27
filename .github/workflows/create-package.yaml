@@ -45,7 +45,6 @@ jobs:
           if [ "$FONTS_HASH" == "$RELEASE_HASH" ]; then
             echo "Hashes are equal. No new changes. Stopping workflow."
             gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
-            gh run watch ${{ github.run_id }} --repo ${{ github.repository }}
           fi
 
       - name: Install required packages
