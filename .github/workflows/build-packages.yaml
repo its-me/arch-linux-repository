@@ -1,0 +1,79 @@
+name: Build AUR Packages
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.read.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read package list
+        id: read
+        run: |
+          packages=$(jq -R -s -c 'split("\n") | map(select(length > 0))' packages)
+          echo "packages=$packages" >> $GITHUB_OUTPUT
+
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    strategy:
+      matrix:
+        package: ${{ fromJson(needs.setup.outputs.packages) }}
+      fail-fast: false
+
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git sudo github-cli
+
+      - name: Create build user
+        run: |
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+      - name: Clone AUR package
+        run: su - builder -c "git clone https://aur.archlinux.org/${{ matrix.package }}.git"
+
+      - name: Build package
+        env:
+          PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email || 'sergeykanafyev@gmail.com' }}>
+          COMPRESSZST: (zstd -c -T0 --ultra -20 -)
+        run: su - builder -c "cd ${{ matrix.package }} && makepkg --nodeps --noconfirm"
+
+      - name: Copy package to workspace
+        run: cp --verbose /home/builder/${{ matrix.package }}/*.pkg.tar.zst .
+
+      - name: Extract version from package
+        run: |
+          PACKAGE_VERSION=$(pacman -Qip *.pkg.tar.zst | grep "^Version" | awk '{print $3}')
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ matrix.package }}-$PACKAGE_VERSION"
+          if gh release view "$TAG" --repo ${{ github.repository }} > /dev/null 2>&1; then
+            echo "Release $TAG already exists, skipping"
+          else
+            gh release create "$TAG" *.pkg.tar.zst \
+              --repo ${{ github.repository }} \
+              --title "${{ matrix.package }} $PACKAGE_VERSION" \
+              --notes "Package: ${{ matrix.package }}"$'\n'"Version: $PACKAGE_VERSION"
+          fi
