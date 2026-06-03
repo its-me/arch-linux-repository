@@ -127,8 +127,6 @@ jobs:
           fi
 
           repo-add arch-linux-repository.db.tar.gz "${pkgs[@]}"
-          cp arch-linux-repository.db.tar.gz arch-linux-repository.db
-          cp arch-linux-repository.files.tar.gz arch-linux-repository.files
 
           gh release delete latest --repo ${{ github.repository }} --yes 2>/dev/null || true
           gh api --method DELETE "/repos/${{ github.repository }}/git/refs/tags/latest" 2>/dev/null || true
