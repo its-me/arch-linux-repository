@@ -49,8 +49,8 @@ jobs:
 
       - name: Bootstrap paru
         run: |
-          su - builder -c "git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg --syncdeps --noconfirm"
-          pacman -U /home/builder/paru-bin/*.pkg.tar.zst --noconfirm
+          su - builder -c "git clone https://aur.archlinux.org/paru.git && cd paru && makepkg --syncdeps --noconfirm"
+          pacman -U /home/builder/paru/*.pkg.tar.zst --noconfirm
 
       - name: Build package
         env:
