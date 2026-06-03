@@ -31,6 +31,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
+    defaults:
+      run:
+        shell: bash
     strategy:
       matrix:
         package: ${{ fromJson(needs.setup.outputs.packages) }}
@@ -86,6 +89,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Install dependencies
