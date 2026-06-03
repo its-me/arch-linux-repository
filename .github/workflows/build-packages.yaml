@@ -40,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git sudo github-cli
+          pacman -S --noconfirm base-devel git sudo
 
       - name: Create build user
         run: |
@@ -59,21 +59,62 @@ jobs:
       - name: Copy package to workspace
         run: cp --verbose /home/builder/${{ matrix.package }}/*.pkg.tar.zst .
 
-      - name: Extract version from package
-        run: |
-          PACKAGE_VERSION=$(pacman -Qip *.pkg.tar.zst | grep "^Version" | awk '{print $3}')
-          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-${{ matrix.package }}
+          path: "*.pkg.tar.zst"
+          if-no-files-found: error
 
-      - name: Create release
+  release:
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm github-cli
+
+      - name: Download all package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pkg-*
+          merge-multiple: true
+          path: repo/
+
+      - name: Create repository database and publish release
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ matrix.package }}-$PACKAGE_VERSION"
-          if gh release view "$TAG" --repo ${{ github.repository }} > /dev/null 2>&1; then
-            echo "Release $TAG already exists, skipping"
-          else
-            gh release create "$TAG" *.pkg.tar.zst \
-              --repo ${{ github.repository }} \
-              --title "${{ matrix.package }} $PACKAGE_VERSION" \
-              --notes "Package: ${{ matrix.package }}"$'\n'"Version: $PACKAGE_VERSION"
+          cd repo
+          shopt -s nullglob
+          pkgs=(*.pkg.tar.zst)
+          if [ ${#pkgs[@]} -eq 0 ]; then
+            echo "No packages built successfully, skipping release"
+            exit 0
           fi
+
+          repo-add arch-linux-repository.db.tar.gz "${pkgs[@]}"
+          cp arch-linux-repository.db.tar.gz arch-linux-repository.db
+          cp arch-linux-repository.files.tar.gz arch-linux-repository.files
+
+          gh release delete latest --repo ${{ github.repository }} --yes 2>/dev/null || true
+          gh api --method DELETE "/repos/${{ github.repository }}/git/refs/tags/latest" 2>/dev/null || true
+
+          gh release create latest * \
+            --repo ${{ github.repository }} \
+            --title "Latest Build" \
+            --notes "$(cat <<EOF
+          Arch Linux custom repository containing ${#pkgs[@]} packages.
+
+          Add to /etc/pacman.conf:
+          \`\`\`ini
+          [arch-linux-repository]
+          Server = https://github.com/$GITHUB_REPOSITORY/releases/download/latest
+          \`\`\`
+          EOF
+          )"
