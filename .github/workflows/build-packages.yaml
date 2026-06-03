@@ -47,17 +47,31 @@ jobs:
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-      - name: Clone AUR package
-        run: su - builder -c "git clone https://aur.archlinux.org/${{ matrix.package }}.git"
+      - name: Bootstrap paru
+        run: |
+          su - builder -c "git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg --syncdeps --noconfirm"
+          pacman -U /home/builder/paru-bin/*.pkg.tar.zst --noconfirm
 
       - name: Build package
         env:
           PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email || 'sergeykanafyev@gmail.com' }}>
-          COMPRESSZST: (zstd -c -T0 --ultra -20 -)
-        run: su - builder -c "cd ${{ matrix.package }} && makepkg --syncdeps --noconfirm"
+        run: |
+          su - builder -c "
+            export PACKAGER='${PACKAGER}'
+            export COMPRESSZST='(zstd -c -T0 --ultra -20 -)'
+            paru -S ${{ matrix.package }} --noconfirm --skipreview --noprogressbar --removemake
+          "
 
       - name: Copy package to workspace
-        run: cp --verbose /home/builder/${{ matrix.package }}/*.pkg.tar.zst .
+        run: |
+          find /home/builder/.cache/paru/clone/${{ matrix.package }} -maxdepth 1 -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
+
+      - name: Encode colons in filenames for artifact upload
+        run: |
+          for f in *.pkg.tar.zst; do
+            newf="${f//:/%3a}"
+            [ "$f" != "$newf" ] && mv -v "$f" "$newf"
+          done
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -85,6 +99,14 @@ jobs:
           pattern: pkg-*
           merge-multiple: true
           path: repo/
+
+      - name: Decode colons in filenames
+        run: |
+          cd repo
+          for f in *.pkg.tar.zst; do
+            newf="${f//%3a/:}"
+            [ "$f" != "$newf" ] && mv -v "$f" "$newf"
+          done
 
       - name: Create repository database and publish release
         env:
