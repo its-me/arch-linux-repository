@@ -54,7 +54,7 @@ jobs:
         env:
           PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email || 'sergeykanafyev@gmail.com' }}>
           COMPRESSZST: (zstd -c -T0 --ultra -20 -)
-        run: su - builder -c "cd ${{ matrix.package }} && makepkg --nodeps --noconfirm"
+        run: su - builder -c "cd ${{ matrix.package }} && makepkg --syncdeps --noconfirm"
 
       - name: Copy package to workspace
         run: cp --verbose /home/builder/${{ matrix.package }}/*.pkg.tar.zst .
