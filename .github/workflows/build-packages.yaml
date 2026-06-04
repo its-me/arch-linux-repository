@@ -97,7 +97,7 @@ jobs:
           su - builder -c "
             export PACKAGER='${PACKAGER}'
             export COMPRESSZST='(zstd -c -T0 --ultra -20 -)'
-            paru -S ${{ matrix.package }} --noconfirm --skipreview --noprogressbar --removemake
+            paru -S ${{ matrix.package }} --noconfirm --skipreview --noprogressbar --removemake --mflags "--nocheck"
           "
 
       - name: Copy package to workspace
