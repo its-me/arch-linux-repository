@@ -9,7 +9,7 @@ A personal Arch Linux package repository that automatically builds AUR packages 
 Add to `/etc/pacman.conf`:
 
 ```ini
-[aur]
+[aur-packages]
 SigLevel = Optional TrustAll
 Server = https://github.com/its-me/arch-linux-repository/releases/download/latest
 ```
