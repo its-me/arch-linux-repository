@@ -156,7 +156,7 @@ jobs:
             exit 0
           fi
 
-          repo-add arch-linux-repository.db.tar.gz "${pkgs[@]}"
+          repo-add aur.db.tar.gz "${pkgs[@]}"
 
           gh release delete latest --repo ${{ github.repository }} --yes 2>/dev/null || true
           gh api --method DELETE "/repos/${{ github.repository }}/git/refs/tags/latest" 2>/dev/null || true
@@ -169,7 +169,8 @@ jobs:
 
           Add to /etc/pacman.conf:
           \`\`\`ini
-          [arch-linux-repository]
+          [aur]
+          SigLevel = Optional TrustAll
           Server = https://github.com/$GITHUB_REPOSITORY/releases/download/latest
           \`\`\`
           EOF
