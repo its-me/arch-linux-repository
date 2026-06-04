@@ -14,7 +14,7 @@ permissions:
   packages: write
 
 jobs:
-  setup:
+  list-packages:
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.read.outputs.packages }}
@@ -55,9 +55,6 @@ jobs:
           hash=$(docker run --rm arch-builder-image pacman -Q | sha256sum | cut -d' ' -f1 | cut -c1-12)
           echo "image=ghcr.io/${{ github.repository }}:$hash" >> $GITHUB_OUTPUT
 
-      - name: Log in to GHCR
-        run: echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
       - name: Restore image cache
         id: cache
         run: |
@@ -66,6 +63,10 @@ jobs:
           else
             echo "cache-hit=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Log in to GHCR
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Push image to GHCR
         if: steps.cache.outputs.cache-hit != 'true'
@@ -76,13 +77,10 @@ jobs:
           docker push ghcr.io/${{ github.repository }}:latest
 
   build:
-    needs: [setup, bootstrap]
+    needs: [list-packages, bootstrap]
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.bootstrap.outputs.image }}
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ github.token }}
     defaults:
       run:
         shell: bash
@@ -92,9 +90,6 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: Update package database
-        run: pacman -Syu --noconfirm
-
       - name: Build package
         env:
           PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email || 'sergeykanafyev@gmail.com' }}>
@@ -119,7 +114,7 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v7
         with:
-          name: pkg-${{ matrix.package }}
+          name: ${{ matrix.package }}
           path: "*.pkg.tar.zst"
           if-no-files-found: error
 
@@ -129,21 +124,15 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.bootstrap.outputs.image }}
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ github.token }}
     defaults:
       run:
         shell: bash
 
     steps:
-      - name: Update package database
-        run: pacman -Syu --noconfirm
-
       - name: Download all package artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: pkg-*
+          pattern: *
           merge-multiple: true
           path: repo/
 
