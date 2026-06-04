@@ -73,7 +73,7 @@ jobs:
         run: |
           for f in *.pkg.tar.zst; do
             newf="${f//:/%3a}"
-            [ "$f" != "$newf" ] && mv -v "$f" "$newf"
+            if [ "$f" != "$newf" ]; then mv -v "$f" "$newf"; fi
           done
 
       - name: Upload package artifact
@@ -111,7 +111,7 @@ jobs:
           cd repo
           for f in *.pkg.tar.zst; do
             newf="${f//%3a/:}"
-            [ "$f" != "$newf" ] && mv -v "$f" "$newf"
+            if [ "$f" != "$newf" ]; then mv -v "$f" "$newf"; fi
           done
 
       - name: Create repository database and publish release
