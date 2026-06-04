@@ -46,6 +46,7 @@ jobs:
           echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
           su - builder -c 'git clone https://aur.archlinux.org/paru.git && cd paru && makepkg --syncdeps --noconfirm'
           pacman -U /home/builder/paru/*.pkg.tar.zst --noconfirm
+          rm -rf /home/builder/paru
           EOF
 
           docker run --name arch-builder -v /tmp/setup.sh:/setup.sh archlinux:latest bash /setup.sh
