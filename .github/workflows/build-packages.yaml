@@ -163,7 +163,7 @@ jobs:
 
           gh release create latest * \
             --repo ${{ github.repository }} \
-            --title "Latest Build" \
+            --title "Latest Versions" \
             --notes "$(cat <<EOF
           Arch Linux custom repository containing ${#pkgs[@]} packages.
 
