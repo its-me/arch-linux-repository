@@ -86,7 +86,7 @@ jobs:
         shell: bash
     strategy:
       matrix:
-        package: ${{ fromJson(needs.setup.outputs.packages) }}
+        package: ${{ fromJson(needs.list-packages.outputs.packages) }}
       fail-fast: false
 
     steps:
@@ -132,7 +132,7 @@ jobs:
       - name: Download all package artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: *
+          pattern: "*"
           merge-multiple: true
           path: repo/
 
