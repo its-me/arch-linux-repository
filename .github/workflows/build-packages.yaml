@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 2 * * *'
+    - cron: "0 2 * * *"
   workflow_dispatch:
 
 permissions:
@@ -69,13 +69,6 @@ jobs:
         run: |
           find /home/builder/.cache/paru/clone/${{ matrix.package }} -maxdepth 1 -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
 
-      - name: Encode colons in filenames for artifact upload
-        run: |
-          for f in *.pkg.tar.zst; do
-            newf="${f//:/%3a}"
-            if [ "$f" != "$newf" ]; then mv -v "$f" "$newf"; fi
-          done
-
       - name: Upload package artifact
         uses: actions/upload-artifact@v7
         with:
@@ -105,14 +98,6 @@ jobs:
           pattern: pkg-*
           merge-multiple: true
           path: repo/
-
-      - name: Decode colons in filenames
-        run: |
-          cd repo
-          for f in *.pkg.tar.zst; do
-            newf="${f//%3a/:}"
-            if [ "$f" != "$newf" ]; then mv -v "$f" "$newf"; fi
-          done
 
       - name: Create repository database and publish release
         env:
