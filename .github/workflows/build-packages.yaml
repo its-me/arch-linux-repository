@@ -11,6 +11,7 @@ on:
 permissions:
   actions: write
   contents: write
+  packages: write
 
 jobs:
   setup:
@@ -26,11 +27,62 @@ jobs:
           packages=$(jq -R -s -c 'split("\n") | map(select(length > 0))' packages)
           echo "packages=$packages" >> $GITHUB_OUTPUT
 
+  bootstrap:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+    steps:
+      - name: Pull base image
+        run: docker pull archlinux:latest
+
+      - name: Build image
+        id: build
+        run: |
+          cat > /tmp/setup.sh << 'EOF'
+          set -e
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git sudo github-cli
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          su - builder -c 'git clone https://aur.archlinux.org/paru.git && cd paru && makepkg --syncdeps --noconfirm'
+          pacman -U /home/builder/paru/*.pkg.tar.zst --noconfirm
+          EOF
+
+          docker run --name arch-builder -v /tmp/setup.sh:/setup.sh archlinux:latest bash /setup.sh
+          docker commit arch-builder arch-builder-image
+          docker rm arch-builder
+
+          hash=$(docker run --rm arch-builder-image pacman -Q | sha256sum | cut -d' ' -f1 | cut -c1-12)
+          echo "image=ghcr.io/${{ github.repository }}:$hash" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        run: echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Restore image cache
+        id: cache
+        run: |
+          if docker manifest inspect ${{ steps.build.outputs.image }} > /dev/null 2>&1; then
+            echo "cache-hit=true" >> $GITHUB_OUTPUT
+          else
+            echo "cache-hit=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push image to GHCR
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          docker tag arch-builder-image ${{ steps.build.outputs.image }}
+          docker tag arch-builder-image ghcr.io/${{ github.repository }}:latest
+          docker push ${{ steps.build.outputs.image }}
+          docker push ghcr.io/${{ github.repository }}:latest
+
   build:
-    needs: setup
+    needs: [setup, bootstrap]
     runs-on: ubuntu-latest
     container:
-      image: archlinux:latest
+      image: ${{ needs.bootstrap.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     defaults:
       run:
         shell: bash
@@ -40,20 +92,8 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git sudo
-
-      - name: Create build user
-        run: |
-          useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-      - name: Bootstrap paru
-        run: |
-          su - builder -c "git clone https://aur.archlinux.org/paru.git && cd paru && makepkg --syncdeps --noconfirm"
-          pacman -U /home/builder/paru/*.pkg.tar.zst --noconfirm
+      - name: Update package database
+        run: pacman -Syu --noconfirm
 
       - name: Build package
         env:
@@ -69,6 +109,13 @@ jobs:
         run: |
           find /home/builder/.cache/paru/clone/${{ matrix.package }} -maxdepth 1 -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
 
+      - name: Encode colons in filenames for artifact upload
+        run: |
+          for f in *.pkg.tar.zst; do
+            newf="${f//:/%3a}"
+            if [ "$f" != "$newf" ]; then mv -v "$f" "$newf"; fi
+          done
+
       - name: Upload package artifact
         uses: actions/upload-artifact@v7
         with:
@@ -77,20 +124,21 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: build
+    needs: [build, bootstrap]
     if: always()
     runs-on: ubuntu-latest
     container:
-      image: archlinux:latest
+      image: ${{ needs.bootstrap.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     defaults:
       run:
         shell: bash
 
     steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm github-cli
+      - name: Update package database
+        run: pacman -Syu --noconfirm
 
       - name: Download all package artifacts
         uses: actions/download-artifact@v8
@@ -98,6 +146,14 @@ jobs:
           pattern: pkg-*
           merge-multiple: true
           path: repo/
+
+      - name: Decode colons in filenames
+        run: |
+          cd repo
+          for f in *.pkg.tar.zst; do
+            newf="${f//%3a/:}"
+            if [ "$f" != "$newf" ]; then mv -v "$f" "$newf"; fi
+          done
 
       - name: Create repository database and publish release
         env:
