@@ -72,9 +72,12 @@ jobs:
       - name: Push image to GHCR
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
+          date_tag=$(date -u +%y%m%d)
           docker tag arch-builder-image ${{ steps.build.outputs.image }}
+          docker tag arch-builder-image ghcr.io/${{ github.repository }}:$date_tag
           docker tag arch-builder-image ghcr.io/${{ github.repository }}:latest
           docker push ${{ steps.build.outputs.image }}
+          docker push ghcr.io/${{ github.repository }}:$date_tag
           docker push ghcr.io/${{ github.repository }}:latest
 
   build:
