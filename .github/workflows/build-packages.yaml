@@ -105,10 +105,10 @@ jobs:
         run: |
           find /home/builder/.cache/paru/clone/${{ matrix.package }} -maxdepth 1 -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
 
-      - name: Encode colons in filenames for artifact upload
+      - name: Replace colons in filenames
         run: |
           for f in *.pkg.tar.zst; do
-            newf="${f//:/%3a}"
+            newf="${f//:/.}"
             if [ "$f" != "$newf" ]; then mv -v "$f" "$newf"; fi
           done
 
@@ -136,14 +136,6 @@ jobs:
           pattern: "*"
           merge-multiple: true
           path: repo/
-
-      - name: Decode colons in filenames
-        run: |
-          cd repo
-          for f in *.pkg.tar.zst; do
-            newf="${f//%3a/:}"
-            if [ "$f" != "$newf" ]; then mv -v "$f" "$newf"; fi
-          done
 
       - name: Create repository database and publish release
         env:
