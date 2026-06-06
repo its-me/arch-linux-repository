@@ -69,7 +69,7 @@ jobs:
           pacman -S --noconfirm base-devel git sudo github-cli jq
           useradd -m builder
           echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
-          su - builder -c 'git clone https://aur.archlinux.org/paru.git && cd paru && makepkg --syncdeps --noconfirm'
+          su - builder -c 'git clone https://aur.archlinux.org/paru.git && cd paru && makepkg --syncdeps --rmdeps --noconfirm'
           pacman -U /home/builder/paru/*.pkg.tar.zst --noconfirm
           rm -rf /home/builder/paru
           EOF
