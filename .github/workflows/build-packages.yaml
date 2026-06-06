@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.filter.outputs.packages }}
-      all_packages: ${{ steps.filter.outputs.all_packages }}
+      outdated: ${{ steps.filter.outputs.outdated }}
     steps:
       - uses: actions/checkout@v6
 
@@ -27,8 +27,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          all_packages=$(jq -R -s -c 'split("\n") | map(select(length > 0))' packages)
-          echo "all_packages=$all_packages" >> $GITHUB_OUTPUT
+          packages=$(jq -R -s -c 'split("\n") | map(select(length > 0))' packages)
+          echo "packages=$packages" >> $GITHUB_OUTPUT
 
           aur_args=$(sed 's/^/arg[]=/g' packages | tr '\n' '&' | sed 's/&$//')
           aur_data=$(curl -s "https://aur.archlinux.org/rpc/v5/info?${aur_args}")
@@ -49,8 +49,8 @@ jobs:
             fi
           done < packages
 
-          packages=$(printf '%s\n' "${to_build[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          echo "packages=$packages" >> $GITHUB_OUTPUT
+          outdated=$(printf '%s\n' "${to_build[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "outdated=$outdated" >> $GITHUB_OUTPUT
 
   bootstrap:
     runs-on: ubuntu-latest
@@ -107,7 +107,7 @@ jobs:
 
   make:
     needs: [prepare, bootstrap]
-    if: needs.prepare.outputs.packages != '[]'
+    if: needs.prepare.outputs.outdated != '[]'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.bootstrap.outputs.image }}
@@ -116,7 +116,7 @@ jobs:
         shell: bash
     strategy:
       matrix:
-        package: ${{ fromJson(needs.prepare.outputs.packages) }}
+        package: ${{ fromJson(needs.prepare.outputs.outdated) }}
       fail-fast: false
 
     steps:
@@ -172,7 +172,7 @@ jobs:
         run: |
           assets=$(gh release view latest --repo ${{ github.repository }} \
             --json assets --jq '[.assets[].name]' 2>/dev/null || echo '[]')
-          packages='${{ needs.prepare.outputs.all_packages }}'
+          packages='${{ needs.prepare.outputs.packages }}'
           for pkg in $(echo "$packages" | jq -r '.[]'); do
             if ls repo/${pkg}-*.pkg.tar.zst 2>/dev/null | grep -q .; then
               echo "$pkg: newly built, skipping"
