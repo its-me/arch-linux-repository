@@ -14,17 +14,42 @@ permissions:
   packages: write
 
 jobs:
-  list-packages:
+  prepare:
     runs-on: ubuntu-latest
     outputs:
-      packages: ${{ steps.read.outputs.packages }}
+      packages: ${{ steps.filter.outputs.packages }}
+      all_packages: ${{ steps.filter.outputs.all_packages }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Read package list
-        id: read
+      - name: Filter packages that need building
+        id: filter
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          packages=$(jq -R -s -c 'split("\n") | map(select(length > 0))' packages)
+          all_packages=$(jq -R -s -c 'split("\n") | map(select(length > 0))' packages)
+          echo "all_packages=$all_packages" >> $GITHUB_OUTPUT
+
+          aur_args=$(sed 's/^/arg[]=/g' packages | tr '\n' '&' | sed 's/&$//')
+          aur_data=$(curl -s "https://aur.archlinux.org/rpc/v5/info?${aur_args}")
+
+          assets=$(gh release view latest --repo ${{ github.repository }} \
+            --json assets --jq '[.assets[].name]' 2>/dev/null || echo '[]')
+
+          to_build=()
+          while IFS= read -r pkg; do
+            aur_version=$(echo "$aur_data" | jq -r ".results[] | select(.Name == \"${pkg}\") | .Version")
+            safe_version="${aur_version//:/\.}"
+            existing=$(echo "$assets" | jq -r ".[] | select(startswith(\"${pkg}-${safe_version}-\"))")
+            if [ -n "$existing" ]; then
+              echo "$pkg $aur_version: up to date, skipping"
+            else
+              echo "$pkg $aur_version: needs building"
+              to_build+=("$pkg")
+            fi
+          done < packages
+
+          packages=$(printf '%s\n' "${to_build[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "packages=$packages" >> $GITHUB_OUTPUT
 
   bootstrap:
@@ -80,8 +105,9 @@ jobs:
           docker push ghcr.io/${{ github.repository }}:$date_tag
           docker push ghcr.io/${{ github.repository }}:latest
 
-  build:
-    needs: [list-packages, bootstrap]
+  make:
+    needs: [prepare, bootstrap]
+    if: needs.prepare.outputs.packages != '[]'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.bootstrap.outputs.image }}
@@ -90,30 +116,11 @@ jobs:
         shell: bash
     strategy:
       matrix:
-        package: ${{ fromJson(needs.list-packages.outputs.packages) }}
+        package: ${{ fromJson(needs.prepare.outputs.packages) }}
       fail-fast: false
 
     steps:
-      - name: Check if latest version already in release
-        id: check
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          pkg="${{ matrix.package }}"
-          aur_version=$(curl -s "https://aur.archlinux.org/rpc/v5/info?arg[]=$pkg" | jq -r '.results[0].Version')
-          safe_version="${aur_version//:/\.}"
-          existing=$(gh release view latest --repo ${{ github.repository }} --json assets \
-            --jq ".assets[] | select(.name | startswith(\"${pkg}-${safe_version}-\")) | .name" 2>/dev/null || true)
-          if [ -n "$existing" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "$pkg $aur_version already in release, skipping build"
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-            echo "$pkg $aur_version not in release, building"
-          fi
-
       - name: Build package
-        if: steps.check.outputs.skip != 'true'
         env:
           PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email || 'sergeykanafyev@gmail.com' }}>
         run: |
@@ -124,12 +131,10 @@ jobs:
           "
 
       - name: Copy package to workspace
-        if: steps.check.outputs.skip != 'true'
         run: |
           find /home/builder/.cache/paru/clone/${{ matrix.package }} -maxdepth 1 -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
 
       - name: Replace colons in filenames
-        if: steps.check.outputs.skip != 'true'
         run: |
           for f in *.pkg.tar.zst; do
             newf="${f//:/.}"
@@ -137,7 +142,6 @@ jobs:
           done
 
       - name: Upload package artifact
-        if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.package }}
@@ -145,7 +149,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build, bootstrap, list-packages]
+    needs: [make, bootstrap, prepare]
     if: always()
     runs-on: ubuntu-latest
     container:
@@ -168,7 +172,7 @@ jobs:
         run: |
           assets=$(gh release view latest --repo ${{ github.repository }} \
             --json assets --jq '[.assets[].name]' 2>/dev/null || echo '[]')
-          packages='${{ needs.list-packages.outputs.packages }}'
+          packages='${{ needs.prepare.outputs.all_packages }}'
           for pkg in $(echo "$packages" | jq -r '.[]'); do
             if ls repo/${pkg}-*.pkg.tar.zst 2>/dev/null | grep -q .; then
               echo "$pkg: newly built, skipping"
