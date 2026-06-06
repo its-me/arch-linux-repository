@@ -94,7 +94,26 @@ jobs:
       fail-fast: false
 
     steps:
+      - name: Check if latest version already in release
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          pkg="${{ matrix.package }}"
+          aur_version=$(curl -s "https://aur.archlinux.org/rpc/v5/info?arg[]=$pkg" | jq -r '.results[0].Version')
+          safe_version="${aur_version//:/\.}"
+          existing=$(gh release view latest --repo ${{ github.repository }} --json assets \
+            --jq ".assets[] | select(.name | startswith(\"${pkg}-${safe_version}-\")) | .name" 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "$pkg $aur_version already in release, skipping build"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "$pkg $aur_version not in release, building"
+          fi
+
       - name: Build package
+        if: steps.check.outputs.skip != 'true'
         env:
           PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email || 'sergeykanafyev@gmail.com' }}>
         run: |
@@ -105,10 +124,12 @@ jobs:
           "
 
       - name: Copy package to workspace
+        if: steps.check.outputs.skip != 'true'
         run: |
           find /home/builder/.cache/paru/clone/${{ matrix.package }} -maxdepth 1 -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
 
       - name: Replace colons in filenames
+        if: steps.check.outputs.skip != 'true'
         run: |
           for f in *.pkg.tar.zst; do
             newf="${f//:/.}"
@@ -116,6 +137,7 @@ jobs:
           done
 
       - name: Upload package artifact
+        if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.package }}
@@ -123,7 +145,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build, bootstrap]
+    needs: [build, bootstrap, list-packages]
     if: always()
     runs-on: ubuntu-latest
     container:
@@ -139,6 +161,25 @@ jobs:
           pattern: "*"
           merge-multiple: true
           path: repo/
+
+      - name: Reuse unchanged packages from latest release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          packages='${{ needs.list-packages.outputs.packages }}'
+          for pkg in $(echo "$packages" | jq -r '.[]'); do
+            if ls repo/${pkg}-*.pkg.tar.zst 2>/dev/null | grep -q .; then
+              echo "$pkg: newly built, skipping"
+              continue
+            fi
+            existing=$(gh release view latest --repo ${{ github.repository }} \
+              --json assets --jq ".assets[] | select(.name | startswith(\"${pkg}-\")) | .name" 2>/dev/null || true)
+            if [ -n "$existing" ]; then
+              echo "$pkg: reusing $existing from latest release"
+              gh release download latest --repo ${{ github.repository }} \
+                --pattern "$existing" --dir repo/ 2>/dev/null || true
+            fi
+          done
 
       - name: Create repository database and publish release
         env:
