@@ -166,14 +166,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          assets=$(gh release view latest --repo ${{ github.repository }} \
+            --json assets --jq '[.assets[].name]' 2>/dev/null || echo '[]')
           packages='${{ needs.list-packages.outputs.packages }}'
           for pkg in $(echo "$packages" | jq -r '.[]'); do
             if ls repo/${pkg}-*.pkg.tar.zst 2>/dev/null | grep -q .; then
               echo "$pkg: newly built, skipping"
               continue
             fi
-            existing=$(gh release view latest --repo ${{ github.repository }} \
-              --json assets --jq ".assets[] | select(.name | startswith(\"${pkg}-\")) | .name" 2>/dev/null || true)
+            existing=$(echo "$assets" | jq -r ".[] | select(startswith(\"${pkg}-\"))")
             if [ -n "$existing" ]; then
               echo "$pkg: reusing $existing from latest release"
               gh release download latest --repo ${{ github.repository }} \
