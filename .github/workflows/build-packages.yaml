@@ -33,7 +33,7 @@ jobs:
       image: ${{ steps.build.outputs.image }}
     steps:
       - name: Pull base image
-        run: docker pull archlinux:latest
+        run: docker pull archlinux/archlinux:latest
 
       - name: Build image
         id: build
@@ -49,7 +49,7 @@ jobs:
           rm -rf /home/builder/paru
           EOF
 
-          docker run --name arch-builder -v /tmp/setup.sh:/setup.sh archlinux:latest bash /setup.sh
+          docker run --name arch-builder -v /tmp/setup.sh:/setup.sh archlinux/archlinux:latest bash /setup.sh
           docker commit arch-builder arch-builder-image
           docker rm arch-builder
 
