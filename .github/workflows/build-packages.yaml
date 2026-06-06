@@ -79,7 +79,7 @@ jobs:
           docker commit arch-builder arch-builder-image
           docker rm arch-builder
 
-          hash=$(docker run --rm arch-builder-image pacman -Q | sha256sum | cut -d' ' -f1 | cut -c1-12)
+          hash=$(docker run --rm arch-builder-image pacman -Q | sha256sum | cut -d' ' -f1)
           echo "image=ghcr.io/${{ github.repository }}:$hash" >> $GITHUB_OUTPUT
 
       - name: Restore image cache
@@ -99,12 +99,12 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           date_tag=$(date -u +%y%m%d)
-          docker tag arch-builder-image ${{ steps.build.outputs.image }}
-          docker tag arch-builder-image ghcr.io/${{ github.repository }}:$date_tag
           docker tag arch-builder-image ghcr.io/${{ github.repository }}:latest
-          docker push ${{ steps.build.outputs.image }}
-          docker push ghcr.io/${{ github.repository }}:$date_tag
+          docker tag arch-builder-image ghcr.io/${{ github.repository }}:$date_tag
+          docker tag arch-builder-image ${{ steps.build.outputs.image }}
           docker push ghcr.io/${{ github.repository }}:latest
+          docker push ghcr.io/${{ github.repository }}:$date_tag
+          docker push ${{ steps.build.outputs.image }}
 
   make:
     needs: [prepare, bootstrap]
