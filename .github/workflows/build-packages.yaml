@@ -128,19 +128,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          assets=$(gh release view latest --repo ${{ github.repository }} \
-            --json assets --jq '[.assets[].name]' 2>/dev/null || echo '[]')
+          mkdir -p old-release/
+          gh release download latest --repo ${{ github.repository }} \
+            --pattern "*.pkg.tar.zst" --dir old-release/ 2>/dev/null || true
           packages='${{ needs.prepare.outputs.packages }}'
           for pkg in $(echo "$packages" | jq -r '.[]'); do
             if ls repo/${pkg}-*.pkg.tar.zst 2>/dev/null | grep -q .; then
               echo "$pkg: newly built, skipping"
               continue
             fi
-            existing=$(echo "$assets" | jq -r ".[] | select(startswith(\"${pkg}-\"))")
+            existing=$(ls old-release/${pkg}-*.pkg.tar.zst 2>/dev/null | head -1)
             if [ -n "$existing" ]; then
-              echo "$pkg: reusing $existing from latest release"
-              gh release download latest --repo ${{ github.repository }} \
-                --pattern "$existing" --dir repo/ 2>/dev/null || true
+              echo "$pkg: reusing $(basename $existing)"
+              cp "$existing" repo/
+            else
+              echo "$pkg: not found in old release, will be missing"
             fi
           done
 
