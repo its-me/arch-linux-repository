@@ -42,6 +42,18 @@ jobs:
             existing=$(echo "$assets" | jq -r ".[] | select(startswith(\"${pkg}-${safe_version}-\"))")
             if [ -n "$existing" ]; then
               echo "$pkg $aur_version: up to date, skipping"
+            elif [[ "$pkg" =~ -(git|svn|hg|bzr)$ ]]; then
+              # VCS packages: AUR .SRCINFO version lags behind the actual built version.
+              # Skip rebuild if our release already has a higher revision (rN) than AUR reports.
+              existing_asset=$(echo "$assets" | jq -r ".[] | select(startswith(\"${pkg}-\") and endswith(\".pkg.tar.zst\"))" | head -1)
+              existing_rev=$(echo "$existing_asset" | grep -oE '\.r[0-9]+' | grep -oE '[0-9]+' | head -1)
+              aur_rev=$(echo "$safe_version" | grep -oE 'r[0-9]+' | grep -oE '[0-9]+' | head -1)
+              if [ -n "$existing_rev" ] && [ -n "$aur_rev" ] && [ "$existing_rev" -ge "$aur_rev" ]; then
+                echo "$pkg $aur_version: up to date (r$existing_rev >= r$aur_rev), skipping"
+              else
+                echo "$pkg $aur_version: needs building"
+                to_build+=("$pkg")
+              fi
             else
               echo "$pkg $aur_version: needs building"
               to_build+=("$pkg")
