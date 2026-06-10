@@ -128,7 +128,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p old-release/
+          mkdir -p repo/ old-release/
           gh release download latest --repo ${{ github.repository }} \
             --pattern "*.pkg.tar.zst" --dir old-release/ 2>/dev/null || true
           packages='${{ needs.prepare.outputs.packages }}'
