@@ -160,14 +160,17 @@ jobs:
 
           repo-add aur-packages.db.tar.gz "${pkgs[@]}"
 
-          notes="Arch Linux custom repository containing ${#pkgs[@]} packages.
+          notes="$(cat <<EOF
+          Arch Linux custom repository containing ${#pkgs[@]} packages.
 
-Add to \`/etc/pacman.conf\`:
-\`\`\`ini
-[aur-packages]
-SigLevel = Optional TrustAll
-Server = https://github.com/$GITHUB_REPOSITORY/releases/download/latest
-\`\`\`"
+          Add to \`/etc/pacman.conf\`:
+          \`\`\`ini
+          [aur-packages]
+          SigLevel = Optional TrustAll
+          Server = https://github.com/$GITHUB_REPOSITORY/releases/download/latest
+          \`\`\`
+          EOF
+          )"
 
           if ! gh release view latest --repo ${{ github.repository }} > /dev/null 2>&1; then
             gh release create latest * \
