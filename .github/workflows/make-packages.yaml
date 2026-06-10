@@ -160,20 +160,38 @@ jobs:
 
           repo-add aur-packages.db.tar.gz "${pkgs[@]}"
 
-          gh release delete latest --repo ${{ github.repository }} --yes 2>/dev/null || true
-          gh api --method DELETE "/repos/${{ github.repository }}/git/refs/tags/latest" 2>/dev/null || true
+          notes="Arch Linux custom repository containing ${#pkgs[@]} packages.
 
-          gh release create latest * \
-            --repo ${{ github.repository }} \
-            --title "Latest Versions" \
-            --notes "$(cat <<EOF
-          Arch Linux custom repository containing ${#pkgs[@]} packages.
+Add to \`/etc/pacman.conf\`:
+\`\`\`ini
+[aur-packages]
+SigLevel = Optional TrustAll
+Server = https://github.com/$GITHUB_REPOSITORY/releases/download/latest
+\`\`\`"
 
-          Add to /etc/pacman.conf:
-          \`\`\`ini
-          [aur-packages]
-          SigLevel = Optional TrustAll
-          Server = https://github.com/$GITHUB_REPOSITORY/releases/download/latest
-          \`\`\`
-          EOF
-          )"
+          if ! gh release view latest --repo ${{ github.repository }} > /dev/null 2>&1; then
+            gh release create latest * \
+              --repo ${{ github.repository }} \
+              --title "Latest Versions" \
+              --notes "$notes"
+          else
+            packages='${{ needs.prepare.outputs.packages }}'
+            for pkg in $(echo "$packages" | jq -r '.[]'); do
+              old_file=$(ls ../old-release/${pkg}-*.pkg.tar.zst 2>/dev/null | head -1)
+              new_file=$(ls ${pkg}-*.pkg.tar.zst 2>/dev/null | head -1)
+              [ -z "$new_file" ] && continue
+              old_name=$(basename "$old_file" 2>/dev/null)
+              new_name=$(basename "$new_file")
+              if [ -z "$old_name" ] || [ "$old_name" != "$new_name" ]; then
+                [ -n "$old_name" ] && { echo "Removing old: $old_name"; gh release delete-asset latest "$old_name" --repo ${{ github.repository }} --yes 2>/dev/null || true; }
+                echo "Uploading: $new_name"
+                gh release upload latest "$new_file" --repo ${{ github.repository }} --clobber
+              fi
+            done
+            gh release upload latest \
+              aur-packages.db.tar.gz aur-packages.db \
+              aur-packages.files.tar.gz aur-packages.files \
+              --repo ${{ github.repository }} --clobber
+            gh release edit latest --repo ${{ github.repository }} \
+              --title "Latest Versions" --notes "$notes"
+          fi
