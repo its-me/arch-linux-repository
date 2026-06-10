@@ -24,7 +24,7 @@ jobs:
       - name: Filter packages that need building
         id: filter
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           packages=$(jq -R -s -c 'split("\n") | map(select(length > 0))' packages)
           echo "packages=$packages" >> $GITHUB_OUTPUT
@@ -126,7 +126,7 @@ jobs:
 
       - name: Reuse unchanged packages from latest release
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p repo/ old-release/
           gh release download latest --repo ${{ github.repository }} \
@@ -148,7 +148,7 @@ jobs:
 
       - name: Create repository database and publish release
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           cd repo
           shopt -s nullglob
