@@ -1,4 +1,4 @@
-name: Build AUR Packages
+name: Make AUR Packages
 
 on:
   push:
@@ -78,7 +78,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: Build package
+      - name: Make package
         env:
           PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email || 'sergeykanafyev@gmail.com' }}>
         run: |
