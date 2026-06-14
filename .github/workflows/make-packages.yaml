@@ -133,11 +133,11 @@ jobs:
             --pattern "*.pkg.tar.zst" --dir old-release/ 2>/dev/null || true
           packages='${{ needs.prepare.outputs.packages }}'
           for pkg in $(echo "$packages" | jq -r '.[]'); do
-            if ls repo/${pkg}-*.pkg.tar.zst 2>/dev/null | grep -q .; then
+            if ls repo/${pkg}-[0-9]*.pkg.tar.zst 2>/dev/null | grep -q .; then
               echo "$pkg: newly built, skipping"
               continue
             fi
-            existing=$(ls old-release/${pkg}-*.pkg.tar.zst 2>/dev/null | head -1)
+            existing=$(ls old-release/${pkg}-[0-9]*.pkg.tar.zst 2>/dev/null | head -1)
             if [ -n "$existing" ]; then
               echo "$pkg: reusing $(basename $existing)"
               cp "$existing" repo/
@@ -182,8 +182,8 @@ jobs:
           else
             packages='${{ needs.prepare.outputs.packages }}'
             for pkg in $(echo "$packages" | jq -r '.[]'); do
-              old_file=$(ls ../old-release/${pkg}-*.pkg.tar.zst 2>/dev/null | head -1)
-              new_file=$(ls ${pkg}-*.pkg.tar.zst 2>/dev/null | head -1)
+              old_file=$(ls ../old-release/${pkg}-[0-9]*.pkg.tar.zst 2>/dev/null | head -1)
+              new_file=$(ls ${pkg}-[0-9]*.pkg.tar.zst 2>/dev/null | head -1)
               [ -z "$new_file" ] && continue
               old_name=$(basename "$old_file" 2>/dev/null)
               new_name=$(basename "$new_file")
