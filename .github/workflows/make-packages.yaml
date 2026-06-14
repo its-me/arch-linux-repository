@@ -160,8 +160,10 @@ jobs:
 
           repo-add aur-packages.db.tar.gz "${pkgs[@]}"
 
-          notes="$(cat <<EOF
-          Arch Linux custom repository containing ${#pkgs[@]} packages.
+          make_notes() {
+            local count=$1
+            cat <<EOF
+          Arch Linux custom repository containing $count packages.
 
           Add to \`/etc/pacman.conf\`:
           \`\`\`ini
@@ -170,13 +172,13 @@ jobs:
           Server = https://github.com/$GITHUB_REPOSITORY/releases/download/latest
           \`\`\`
           EOF
-          )"
+          }
 
           if ! gh release view latest --repo ${{ github.repository }} > /dev/null 2>&1; then
             gh release create latest * \
               --repo ${{ github.repository }} \
               --title "Latest Versions" \
-              --notes "$notes"
+              --notes "$(make_notes ${#pkgs[@]})"
           else
             packages='${{ needs.prepare.outputs.packages }}'
             for pkg in $(echo "$packages" | jq -r '.[]'); do
@@ -195,6 +197,8 @@ jobs:
               aur-packages.db.tar.gz aur-packages.db \
               aur-packages.files.tar.gz aur-packages.files \
               --repo ${{ github.repository }} --clobber
+            actual_count=$(gh release view latest --repo ${{ github.repository }} \
+              --json assets --jq '[.assets[].name | select(endswith(".pkg.tar.zst"))] | length')
             gh release edit latest --repo ${{ github.repository }} \
-              --title "Latest Versions" --notes "$notes"
+              --title "Latest Versions" --notes "$(make_notes $actual_count)"
           fi
