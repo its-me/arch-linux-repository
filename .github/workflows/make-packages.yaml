@@ -133,14 +133,14 @@ jobs:
             --pattern "*.pkg.tar.zst" --dir old-release/ 2>/dev/null || true
           packages='${{ needs.prepare.outputs.packages }}'
           for pkg in $(echo "$packages" | jq -r '.[]'); do
-            if ls repo/${pkg}-[0-9]*.pkg.tar.zst 2>/dev/null | grep -q .; then
+            if ls repo/ | grep -qE "^${pkg}-[[:digit:]].*\.pkg\.tar\.zst$"; then
               echo "$pkg: newly built, skipping"
               continue
             fi
-            existing=$(ls old-release/${pkg}-[0-9]*.pkg.tar.zst 2>/dev/null | head -1)
+            existing=$(ls old-release/ | grep -Em1 "^${pkg}-[[:digit:]].*\.pkg\.tar\.zst$" || true)
             if [ -n "$existing" ]; then
-              echo "$pkg: reusing $(basename $existing)"
-              cp "$existing" repo/
+              echo "$pkg: reusing $existing"
+              cp "old-release/$existing" repo/
             else
               echo "$pkg: not found in old release, will be missing"
             fi
@@ -182,15 +182,13 @@ jobs:
           else
             packages='${{ needs.prepare.outputs.packages }}'
             for pkg in $(echo "$packages" | jq -r '.[]'); do
-              old_file=$(ls ../old-release/${pkg}-[0-9]*.pkg.tar.zst 2>/dev/null | head -1)
-              new_file=$(ls ${pkg}-[0-9]*.pkg.tar.zst 2>/dev/null | head -1)
-              [ -z "$new_file" ] && continue
-              old_name=$(basename "$old_file" 2>/dev/null)
-              new_name=$(basename "$new_file")
+              new_name=$(ls | grep -Em1 "^${pkg}-[[:digit:]].*\.pkg\.tar\.zst$" || true)
+              [ -z "$new_name" ] && continue
+              old_name=$(ls ../old-release/ | grep -Em1 "^${pkg}-[[:digit:]].*\.pkg\.tar\.zst$" || true)
               if [ -z "$old_name" ] || [ "$old_name" != "$new_name" ]; then
                 [ -n "$old_name" ] && { echo "Removing old: $old_name"; gh release delete-asset latest "$old_name" --repo ${{ github.repository }} --yes 2>/dev/null || true; }
                 echo "Uploading: $new_name"
-                gh release upload latest "$new_file" --repo ${{ github.repository }} --clobber
+                gh release upload latest "$new_name" --repo ${{ github.repository }} --clobber
               fi
             done
             gh release upload latest \
