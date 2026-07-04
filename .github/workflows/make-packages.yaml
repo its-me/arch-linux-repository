@@ -68,7 +68,7 @@ jobs:
     if: needs.prepare.outputs.outdated != '[]'
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/its-me/arch-linux:builder
+      image: ghcr.io/its-me/archlinux:builder
     defaults:
       run:
         shell: bash
@@ -111,7 +111,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/its-me/arch-linux:builder
+      image: ghcr.io/its-me/archlinux:builder
     defaults:
       run:
         shell: bash
