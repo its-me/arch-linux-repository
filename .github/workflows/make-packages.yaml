@@ -8,13 +8,11 @@ on:
     - cron: "0 * * * *"
   workflow_dispatch:
 
-permissions:
-  actions: write
-  contents: write
-
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       packages: ${{ steps.filter.outputs.packages }}
       outdated: ${{ steps.filter.outputs.outdated }}
@@ -67,6 +65,7 @@ jobs:
     needs: [prepare]
     if: needs.prepare.outputs.outdated != '[]'
     runs-on: ubuntu-latest
+    permissions: {}
     container:
       image: ghcr.io/its-me/archlinux:builder
     defaults:
@@ -81,16 +80,19 @@ jobs:
       - name: Make package
         env:
           PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email || 'sergeykanafyev@gmail.com' }}>
+          PACKAGE: ${{ matrix.package }}
         run: |
           su - builder -c "
             export PACKAGER='${PACKAGER}'
             export COMPRESSZST='(zstd -c -T0 --ultra -20 -)'
-            paru -S ${{ matrix.package }} --noconfirm --skipreview --noprogressbar --removemake --mflags "--nocheck"
+            paru -S ${PACKAGE} --noconfirm --skipreview --noprogressbar --removemake --mflags "--nocheck"
           "
 
       - name: Copy package to workspace
+        env:
+          PACKAGE: ${{ matrix.package }}
         run: |
-          find /home/builder/.cache/paru/clone/${{ matrix.package }} -maxdepth 1 -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
+          find /home/builder/.cache/paru/clone/${PACKAGE} -maxdepth 1 -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
 
       - name: Replace colons in filenames
         run: |
@@ -110,6 +112,8 @@ jobs:
     needs: [make, prepare]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     container:
       image: ghcr.io/its-me/archlinux:builder
     defaults:
@@ -127,11 +131,12 @@ jobs:
       - name: Reuse unchanged packages from latest release
         env:
           GH_TOKEN: ${{ github.token }}
+          PACKAGES_JSON: ${{ needs.prepare.outputs.packages }}
         run: |
           mkdir -p repo/ old-release/
           gh release download latest --repo ${{ github.repository }} \
             --pattern "*.pkg.tar.zst" --dir old-release/ 2>/dev/null || true
-          packages='${{ needs.prepare.outputs.packages }}'
+          packages="$PACKAGES_JSON"
           for pkg in $(echo "$packages" | jq -r '.[]'); do
             if ls repo/ | grep -qE "^${pkg}-[[:digit:]].*\.pkg\.tar\.zst$"; then
               echo "$pkg: newly built, skipping"
@@ -149,6 +154,7 @@ jobs:
       - name: Create repository database and publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          PACKAGES_JSON: ${{ needs.prepare.outputs.packages }}
         run: |
           cd repo
           shopt -s nullglob
@@ -180,7 +186,7 @@ jobs:
               --title "Latest Versions" \
               --notes "$(make_notes ${#pkgs[@]})"
           else
-            packages='${{ needs.prepare.outputs.packages }}'
+            packages="$PACKAGES_JSON"
             for pkg in $(echo "$packages" | jq -r '.[]'); do
               new_name=$(ls | grep -Em1 "^${pkg}-[[:digit:]].*\.pkg\.tar\.zst$" || true)
               [ -z "$new_name" ] && continue
