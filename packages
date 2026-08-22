@@ -32,6 +32,7 @@ linkerd-edge-bin
 linkerd-edge-recommended-bin
 microsoft-edge-stable-bin
 netctl-dispatcher-chrony
+niri-scratchpad-rs
 opera
 paru
 python-class-registry
