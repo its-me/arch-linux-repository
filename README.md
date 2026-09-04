@@ -23,4 +23,4 @@ sudo pacman -S <package>
 
 ## Packages
 
-See the [`packages`](packages) file for the full list of included AUR packages.
+See the [`packages.list`](packages.list) file for the full list of included AUR packages.

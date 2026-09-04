@@ -24,10 +24,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          packages=$(jq -R -s -c 'split("\n") | map(select(length > 0))' packages)
+          packages=$(jq -R -s -c 'split("\n") | map(select(length > 0))' packages.list)
           echo "packages=$packages" >> $GITHUB_OUTPUT
 
-          aur_args=$(sed 's/^/arg[]=/g' packages | tr '\n' '&' | sed 's/&$//')
+          aur_args=$(sed 's/^/arg[]=/g' packages.list | tr '\n' '&' | sed 's/&$//')
           aur_data=$(curl -s "https://aur.archlinux.org/rpc/v5/info?${aur_args}")
 
           assets=$(gh release view latest --repo ${{ github.repository }} \
@@ -56,7 +56,7 @@ jobs:
               echo "$pkg $aur_version: needs building"
               to_build+=("$pkg")
             fi
-          done < packages
+          done < packages.list
 
           outdated=$(printf '%s\n' "${to_build[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "outdated=$outdated" >> $GITHUB_OUTPUT
