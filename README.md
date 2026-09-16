@@ -24,3 +24,7 @@ sudo pacman -S <package>
 ## Packages
 
 See the [`packages.list`](packages.list) file for the full list of included AUR packages.
+
+## License
+
+[MIT](LICENSE)
