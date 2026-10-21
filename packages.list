@@ -13,7 +13,6 @@ chatbox-bin
 claude-code
 claurst
 clipman
-crossplane-gixy
 csstidy
 di
 downgrade
@@ -35,7 +34,6 @@ linkerd-edge-bin
 linkerd-edge-recommended-bin
 microsoft-edge-stable-bin
 netctl-dispatcher-chrony
-nginx-language-server
 niri-scratchpad-rs
 opera
 paru
