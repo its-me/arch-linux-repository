@@ -35,6 +35,7 @@ linkerd-edge-recommended-bin
 microsoft-edge-stable-bin
 netctl-dispatcher-chrony
 niri-scratchpad-rs
+openspec
 opera
 paru
 python-class-registry
