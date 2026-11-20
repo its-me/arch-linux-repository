@@ -20,6 +20,7 @@ jobs:
     outputs:
       packages: ${{ steps.filter.outputs.packages }}
       outdated: ${{ steps.filter.outputs.outdated }}
+      matrix: ${{ steps.filter.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
 
@@ -38,8 +39,11 @@ jobs:
             --json assets --jq '[.assets[].name]' 2>/dev/null || echo '[]')
 
           to_build=()
+          to_build_bases=()
           while IFS= read -r pkg; do
             aur_version=$(echo "$aur_data" | jq -r ".results[] | select(.Name == \"${pkg}\") | .Version")
+            pkgbase=$(echo "$aur_data" | jq -r ".results[] | select(.Name == \"${pkg}\") | .PackageBase")
+            [ -z "$pkgbase" ] && pkgbase="$pkg"
             safe_version="${aur_version//:/\.}"
             existing=$(echo "$assets" | jq -r ".[] | select(startswith(\"${pkg}-${safe_version}-\"))")
             if [ -n "$existing" ]; then
@@ -55,15 +59,28 @@ jobs:
               else
                 echo "$pkg $aur_version: needs building"
                 to_build+=("$pkg")
+                to_build_bases+=("$pkgbase")
               fi
             else
               echo "$pkg $aur_version: needs building"
               to_build+=("$pkg")
+              to_build_bases+=("$pkgbase")
             fi
           done < packages.list
 
           outdated=$(printf '%s\n' "${to_build[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "outdated=$outdated" >> $GITHUB_OUTPUT
+
+          # Split packages (e.g. joplin + joplin-desktop) share one PKGBUILD (PackageBase),
+          # so group them into a single build job per package base.
+          matrix=$(for i in "${!to_build[@]}"; do
+                     printf '%s\t%s\n' "${to_build_bases[$i]}" "${to_build[$i]}"
+                   done | jq -R -s -c '
+                     split("\n") | map(select(length > 0) | split("\t"))
+                     | group_by(.[0])
+                     | map({base: .[0][0], packages: (map(.[1]) | join(" "))})
+                     | {include: .}')
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
   make:
     needs: [prepare]
@@ -76,27 +93,35 @@ jobs:
       run:
         shell: bash
     strategy:
-      matrix:
-        package: ${{ fromJson(needs.prepare.outputs.outdated) }}
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
       fail-fast: false
 
     steps:
       - name: Make package
         env:
           PACKAGER: Sergey Kanafyev <${{ github.event.pusher.email || 'sergeykanafyev@gmail.com' }}>
-          PACKAGE: ${{ matrix.package }}
+          PACKAGES: ${{ matrix.packages }}
         run: |
           su - builder -c "
             export PACKAGER='${PACKAGER}'
             export COMPRESSZST='(zstd -c -T0 --ultra -20 -)'
-            paru -S ${PACKAGE} --noconfirm --skipreview --noprogressbar --removemake --mflags "--nocheck"
+            paru -S ${PACKAGES} --noconfirm --skipreview --noprogressbar --removemake --mflags "--nocheck"
           "
 
       - name: Copy package to workspace
         env:
-          PACKAGE: ${{ matrix.package }}
+          PKGBASE: ${{ matrix.base }}
+          PACKAGES: ${{ matrix.packages }}
         run: |
-          find /home/builder/.cache/paru/clone/${PACKAGE} -maxdepth 1 -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
+          # Copy only the requested packages; a split PKGBUILD may produce others too.
+          for pkg in ${PACKAGES}; do
+            find "/home/builder/.cache/paru/clone/${PKGBASE}" -maxdepth 1 \
+              -name "${pkg}-[0-9]*.pkg.tar.zst" ! -name "*-debug-*" -exec cp --verbose {} . \;
+            if ! ls "${pkg}"-[0-9]*.pkg.tar.zst > /dev/null 2>&1; then
+              echo "::error::${pkg}: built package not found in clone/${PKGBASE}"
+              exit 1
+            fi
+          done
 
       - name: Replace colons in filenames
         run: |
@@ -108,7 +133,7 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.package }}
+          name: ${{ matrix.base }}
           path: "*.pkg.tar.zst"
           if-no-files-found: error
 
