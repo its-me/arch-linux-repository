@@ -42,6 +42,11 @@ jobs:
           to_build_bases=()
           while IFS= read -r pkg; do
             aur_version=$(echo "$aur_data" | jq -r ".results[] | select(.Name == \"${pkg}\") | .Version")
+            if [ -z "$aur_version" ]; then
+              # Without this, paru would silently build another AUR package that provides this name.
+              echo "::warning::$pkg: not found in the AUR (deleted, renamed, or moved to the official repos), skipping"
+              continue
+            fi
             pkgbase=$(echo "$aur_data" | jq -r ".results[] | select(.Name == \"${pkg}\") | .PackageBase")
             [ -z "$pkgbase" ] && pkgbase="$pkg"
             safe_version="${aur_version//:/\.}"
