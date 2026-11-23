@@ -88,6 +88,7 @@ jobs:
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
   make:
+    name: make (${{ matrix.packages }})
     needs: [prepare]
     if: needs.prepare.outputs.outdated != '[]'
     runs-on: ubuntu-latest
